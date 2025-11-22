@@ -19,7 +19,7 @@ from reportlab.lib import colors
 
 # Set page configuration
 st.set_page_config(
-    page_title="Breast Ultrasound AI Analysis",
+    page_title="Kidney Ultrasound AI Analysis",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -68,9 +68,10 @@ st.markdown("""
         align-items: center;
         justify-content: center;
     }
-    .benign { background: linear-gradient(90deg, #2ecc71, #27ae60); }
-    .malignant { background: linear-gradient(90deg, #e74c3c, #c0392b); }
-    .normal { background: linear-gradient(90deg, #3498db, #2980b9); }
+    .cyst { background: linear-gradient(90deg, #ff6b6b, #ee5a52); }
+    .normal { background: linear-gradient(90deg, #4caf50, #45a049); }
+    .stone { background: linear-gradient(90deg, #ff9800, #f57c00); }
+    .tumor { background: linear-gradient(90deg, #9c27b0, #7b1fa2); }
     .recommendation-box {
         padding: 15px;
         border-radius: 8px;
@@ -108,12 +109,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Sidebar with ALL enhanced features
 with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>🏥 Breast AI Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>🏥 Kidney AI Pro</h1>", unsafe_allow_html=True)
     st.markdown("---")
     
     st.markdown("### 🔬 About This App")
     st.info("""
-    **Advanced Breast Ultrasound AI Analysis** with:
+    **Advanced Kidney Ultrasound AI Analysis** with:
     - Multi-image batch processing
     - Patient risk assessment
     - Comparative analysis
@@ -173,7 +174,7 @@ with st.sidebar:
             st.metric("GPU Usage", "Active")
         else:
             st.metric("Device", "CPU")
-        st.metric("Model Version", "Breast2 Pro v2.0")
+        st.metric("Model Version", "Kidney Pro v2.0")
 
 # Image transformations
 val_transforms = transforms.Compose([
@@ -345,17 +346,17 @@ def create_binary_mask(cam, original_image):
 def create_model():
     model = models.resnet50(weights=None)
     num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 3)
+    model.fc = nn.Linear(num_features, 4)  # 4 classes for kidney
     
     try:
-        model_path = "Breast2_lump_best_weights.pth"
+        model_path = "Bestresnet50_kidney_best_weights.pth"
         if os.path.exists(model_path):
             state_dict = torch.load(model_path, map_location=device)
             if 'model_state_dict' in state_dict:
                 model.load_state_dict(state_dict['model_state_dict'])
             else:
                 model.load_state_dict(state_dict)
-            st.sidebar.success("✅ **ENHANCED MODEL LOADED**")
+            st.sidebar.success("✅ **ENHANCED KIDNEY MODEL LOADED**")
         else:
             st.error(f"❌ Model file not found: {model_path}")
             return None
@@ -367,8 +368,8 @@ def create_model():
     model.eval()
     return model
 
-# Class names
-classes = ['benign', 'malignant', 'normal']
+# Class names for kidney
+classes = ['cyst', 'normal', 'stone', 'tumor']
 
 def predict_image(model, image):
     if image.mode != 'RGB':
@@ -482,78 +483,97 @@ def add_enhanced_annotation(image, point, label, color=(255, 0, 0)):
         return image
 
 def get_enhanced_recommendations(prediction, confidence):
-    """Enhanced clinical recommendations"""
+    """Enhanced clinical recommendations for kidney conditions"""
     recommendations = {
-        'benign': {
+        'cyst': {
             'urgency': 'Low', 'urgency_class': 'urgency-low',
             'actions': [
                 "Schedule follow-up ultrasound in 6-12 months",
-                "Continue routine breast screening as per guidelines",
-                "Clinical breast examination in 6 months",
-                "Monitor for any changes in size, shape, or characteristics",
-                "Consider genetic counseling if strong family history"
+                "Monitor cyst size and characteristics",
+                "Consider renal function tests",
+                "Evaluate for complex cyst features if indicated",
+                "Routine nephrology follow-up"
             ],
-            'risk_factors': ["Stable appearance", "Well-defined margins", "No rapid growth"]
-        },
-        'malignant': {
-            'urgency': 'High', 'urgency_class': 'urgency-high',
-            'actions': [
-                "Urgent consultation with breast specialist/surgeon",
-                "Core needle biopsy for histopathological confirmation",
-                "Additional diagnostic imaging (MRI if indicated)",
-                "Multidisciplinary team review",
-                "Genetic testing consideration"
-            ],
-            'risk_factors': ["Irregular margins", "Rapid growth", "Architectural distortion"]
+            'risk_factors': ["Simple cyst appearance", "Stable size", "No wall thickening"]
         },
         'normal': {
             'urgency': 'Routine', 'urgency_class': 'urgency-low',
             'actions': [
-                "Continue routine screening schedule",
-                "Regular self-breast awareness",
-                "Next screening mammography as per age guidelines",
-                "Annual clinical breast examination",
-                "Maintain healthy lifestyle"
+                "Continue routine kidney screening",
+                "Maintain healthy hydration",
+                "Monitor blood pressure regularly",
+                "Annual renal function assessment",
+                "Lifestyle modifications if risk factors present"
             ],
-            'risk_factors': ["Normal architecture", "Stable pattern", "No suspicious features"]
+            'risk_factors': ["Normal renal architecture", "Clear corticomedullary differentiation", "No masses"]
+        },
+        'stone': {
+            'urgency': 'Medium', 'urgency_class': 'urgency-medium',
+            'actions': [
+                "Urgent urology consultation",
+                "Assess stone size and location",
+                "Pain management and hydration",
+                "Consider CT scan for precise localization",
+                "Metabolic workup for recurrent stones"
+            ],
+            'risk_factors': ["Acoustic shadowing", "Stone size >5mm", "Hydronephrosis present"]
+        },
+        'tumor': {
+            'urgency': 'High', 'urgency_class': 'urgency-high',
+            'actions': [
+                "Immediate urology/oncology consultation",
+                "Contrast-enhanced CT/MRI for staging",
+                "Consider biopsy for histopathological confirmation",
+                "Multidisciplinary team review",
+                "Surgical evaluation if indicated"
+            ],
+            'risk_factors': ["Solid mass appearance", "Irregular margins", "Vascular invasion", "Rapid growth"]
         }
     }
     return recommendations.get(prediction, {})
 
 def explain_enhanced_prediction(prediction, probabilities, confidence):
-    """Enhanced AI explanations"""
+    """Enhanced AI explanations for kidney conditions"""
     explanations = {
-        'malignant': [
-            "🔄 Irregular mass margins with spiculated appearance",
-            "📊 Architectural distortion and tissue retraction",
-            "🎯 Suspicious microcalcifications cluster",
-            "📈 Asymmetric tissue density with rapid changes",
-            "⚠️ Enhanced vascularity around the lesion"
-        ],
-        'benign': [
-            "✅ Well-circumscribed mass with smooth margins",
-            "📏 Stable size and appearance over time",
-            "🎨 Homogeneous internal echo pattern",
-            "🔄 No significant vascularity increase",
-            "📊 Typical benign characteristics present"
+        'cyst': [
+            "🔄 Well-defined anechoic lesion with posterior enhancement",
+            "📊 Thin smooth walls without internal echoes",
+            "🎯 Round/oval shape with clear margins",
+            "📈 No internal vascularity on Doppler",
+            "✅ Typical simple cyst characteristics"
         ],
         'normal': [
-            "👍 Normal fibroglandular tissue distribution",
-            "📐 Symmetric breast architecture maintained",
-            "🎯 No suspicious masses or distortions",
-            "🔄 Stable appearance from previous studies",
-            "📊 Typical age-appropriate patterns"
+            "👍 Normal renal size and contour maintained",
+            "📐 Clear corticomedullary differentiation",
+            "🎯 Normal parenchymal thickness and echogenicity",
+            "🔄 No hydronephrosis or masses",
+            "📊 Typical renal sinus fat pattern"
+        ],
+        'stone': [
+            "🔄 Hyperechoic focus with acoustic shadowing",
+            "📊 Twinkle artifact on color Doppler",
+            "🎯 Located in renal pelvis/calyces",
+            "⚠️ Possible associated hydronephrosis",
+            "📈 Stone characteristics suggesting composition"
+        ],
+        'tumor': [
+            "🔄 Solid mass with heterogeneous echotexture",
+            "📊 Irregular margins and possible infiltration",
+            "🎯 Vascularity within the mass on Doppler",
+            "⚠️ Loss of normal renal architecture",
+            "📈 Suspicious for renal cell carcinoma"
         ]
     }
     
-    return explanations.get(prediction, ["Standard tissue evaluation completed"])
+    return explanations.get(prediction, ["Standard renal tissue evaluation completed"])
 
 def calculate_enhanced_risk_score(patient_data, prediction, confidence):
-    """Enhanced risk assessment"""
+    """Enhanced risk assessment for kidney conditions"""
     base_risk = {
-        'malignant': 0.85,
-        'benign': 0.25,
-        'normal': 0.08
+        'tumor': 0.80,
+        'stone': 0.45,
+        'cyst': 0.15,
+        'normal': 0.05
     }[prediction]
     
     # Confidence adjustment
@@ -562,14 +582,16 @@ def calculate_enhanced_risk_score(patient_data, prediction, confidence):
     # Patient factor adjustments
     adjustments = 1.0
     
-    if patient_data.get('family_history') == "Breast Cancer":
-        adjustments *= 1.6
-    if patient_data.get('previous_biopsy', "No") != "No":
+    if patient_data.get('family_history') == "Kidney Disease":
+        adjustments *= 1.5
+    if patient_data.get('hypertension', "No") == "Yes":
         adjustments *= 1.4
-    if patient_data.get('age', 45) > 50:
+    if patient_data.get('diabetes', "No") == "Yes":
+        adjustments *= 1.6
+    if patient_data.get('age', 45) > 60:
         adjustments *= 1.3
-    if patient_data.get('breast_density', "").startswith("C") or patient_data.get('breast_density', "").startswith("D"):
-        adjustments *= 1.2
+    if patient_data.get('smoking', "No") == "Yes":
+        adjustments *= 1.4
     
     final_risk = min(base_risk * risk_adjustment * adjustments, 0.95)
     return final_risk
@@ -617,7 +639,7 @@ def generate_enhanced_pdf_report(analysis_data):
                                 fontSize=18, spaceAfter=30, alignment=1, 
                                 textColor=colors.HexColor('#1f77b4'),
                                 backColor=colors.HexColor('#f8f9fa'))
-    story.append(Paragraph("ADVANCED BREAST ULTRASOUND AI ANALYSIS REPORT", title_style))
+    story.append(Paragraph("ADVANCED KIDNEY ULTRASOUND AI ANALYSIS REPORT", title_style))
     story.append(Spacer(1, 20))
     
     # Patient Information Section
@@ -628,8 +650,9 @@ def generate_enhanced_pdf_report(analysis_data):
         <b>Age:</b> {analysis_data['patient_data'].get('age', 'N/A')}<br/>
         <b>Gender:</b> {analysis_data['patient_data'].get('gender', 'N/A')}<br/>
         <b>Family History:</b> {analysis_data['patient_data'].get('family_history', 'N/A')}<br/>
-        <b>Breast Density:</b> {analysis_data['patient_data'].get('breast_density', 'N/A')}<br/>
-        <b>Previous Biopsy:</b> {analysis_data['patient_data'].get('previous_biopsy', 'N/A')}
+        <b>Hypertension:</b> {analysis_data['patient_data'].get('hypertension', 'N/A')}<br/>
+        <b>Diabetes:</b> {analysis_data['patient_data'].get('diabetes', 'N/A')}<br/>
+        <b>Smoking Status:</b> {analysis_data['patient_data'].get('smoking', 'N/A')}
         """
         story.append(Paragraph(patient_info, styles['Normal']))
         story.append(Spacer(1, 15))
@@ -642,7 +665,7 @@ def generate_enhanced_pdf_report(analysis_data):
     story.append(Spacer(1, 20))
     
     # Enhanced Prediction Results
-    pred_color = {'benign': '#2ecc71', 'malignant': '#e74c3c', 'normal': '#3498db'}[analysis_data['prediction']]
+    pred_color = {'cyst': '#ff6b6b', 'normal': '#4caf50', 'stone': '#ff9800', 'tumor': '#9c27b0'}[analysis_data['prediction']]
     story.append(Paragraph("<b>PREDICTION RESULTS</b>", styles['Heading2']))
     prediction_text = f"""
     <b>Classification:</b> <font color='{pred_color}'><b>{analysis_data['prediction'].upper()}</b></font><br/>
@@ -656,18 +679,21 @@ def generate_enhanced_pdf_report(analysis_data):
     # Enhanced Confidence Scores Table
     confidence_data = [
         ['Class', 'Probability', 'Confidence', 'Risk Level'],
-        ['Benign', f"{analysis_data['probabilities'][0]:.4f}", 
+        ['Cyst', f"{analysis_data['probabilities'][0]:.4f}", 
          f"{analysis_data['probabilities'][0]*100:.1f}%", 
          'Low' if analysis_data['probabilities'][0] < 0.3 else 'Medium' if analysis_data['probabilities'][0] < 0.7 else 'High'],
-        ['Malignant', f"{analysis_data['probabilities'][1]:.4f}", 
+        ['Normal', f"{analysis_data['probabilities'][1]:.4f}", 
          f"{analysis_data['probabilities'][1]*100:.1f}%", 
          'Low' if analysis_data['probabilities'][1] < 0.3 else 'Medium' if analysis_data['probabilities'][1] < 0.7 else 'High'],
-        ['Normal', f"{analysis_data['probabilities'][2]:.4f}", 
+        ['Stone', f"{analysis_data['probabilities'][2]:.4f}", 
          f"{analysis_data['probabilities'][2]*100:.1f}%", 
-         'Low' if analysis_data['probabilities'][2] < 0.3 else 'Medium' if analysis_data['probabilities'][2] < 0.7 else 'High']
+         'Low' if analysis_data['probabilities'][2] < 0.3 else 'Medium' if analysis_data['probabilities'][2] < 0.7 else 'High'],
+        ['Tumor', f"{analysis_data['probabilities'][3]:.4f}", 
+         f"{analysis_data['probabilities'][3]*100:.1f}%", 
+         'Low' if analysis_data['probabilities'][3] < 0.3 else 'Medium' if analysis_data['probabilities'][3] < 0.7 else 'High']
     ]
     
-    confidence_table = Table(confidence_data, colWidths=[1.5*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    confidence_table = Table(confidence_data, colWidths=[1.2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
     confidence_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2e86ab')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -693,7 +719,8 @@ def generate_enhanced_pdf_report(analysis_data):
     urgency_color = {
         'High': colors.red,
         'Medium': colors.orange,
-        'Low': colors.green
+        'Low': colors.green,
+        'Routine': colors.blue
     }.get(analysis_data['recommendations'].get('urgency', 'Low'), colors.black)
     
     urgency_text = f"<b>Urgency Level:</b> <font color='{urgency_color}'>{analysis_data['recommendations'].get('urgency', 'N/A')}</font>"
@@ -737,7 +764,7 @@ def generate_enhanced_pdf_report(analysis_data):
     return buffer
 
 def main():
-    st.markdown('<h1 class="main-header">🏥 Advanced Breast Ultrasound AI Analysis</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">🏥 Advanced Kidney Ultrasound AI Analysis</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; color: #666; margin-bottom: 2rem;">Enhanced AI-Powered Clinical Decision Support System</p>', unsafe_allow_html=True)
     
     # Feature showcase
@@ -753,35 +780,35 @@ def main():
     
     model = create_model()
     if model is None:
-        st.warning("Please ensure 'Breast2_lump_best_weights.pth' is uploaded to continue.")
+        st.warning("Please ensure 'Bestresnet50_kidney_best_weights.pth' is uploaded to continue.")
         return
 
     # Enhanced Patient Information Form
     with st.expander("👤 Enhanced Patient Information", expanded=False):
         col1, col2, col3 = st.columns(3)
         with col1:
-            patient_id = st.text_input("Patient ID", value="PAT-001", key="pat_id")
+            patient_id = st.text_input("Patient ID", value="KID-001", key="pat_id")
             age = st.number_input("Age", min_value=18, max_value=100, value=45, key="age")
-            menopausal_status = st.selectbox("Menopausal Status", ["Pre-menopausal", "Post-menopausal"], key="meno")
+            gender = st.selectbox("Gender", ["Male", "Female"], key="gender")
         with col2:
-            gender = st.selectbox("Gender", ["Female", "Male"], key="gender")
-            family_history = st.selectbox("Family History", ["None", "Breast Cancer", "Ovarian Cancer", "Other Cancer"], key="fam_hist")
-            brca_status = st.selectbox("BRCA Status", ["Unknown", "Negative", "Positive"], key="brca")
+            family_history = st.selectbox("Family History", ["None", "Kidney Disease", "Hypertension", "Diabetes", "Other"], key="fam_hist")
+            hypertension = st.selectbox("Hypertension", ["No", "Yes - Controlled", "Yes - Uncontrolled"], key="hypertension")
+            diabetes = st.selectbox("Diabetes", ["No", "Type 1", "Type 2", "Gestational"], key="diabetes")
         with col3:
-            breast_density = st.selectbox("Breast Density", ["A - Fatty", "B - Scattered", "C - Heterogeneous", "D - Extremely Dense"], key="density")
-            previous_biopsy = st.selectbox("Previous Biopsy", ["No", "Yes - Benign", "Yes - Atypical", "Yes - Malignant"], key="biopsy")
-            hormone_therapy = st.selectbox("Hormone Therapy", ["No", "Yes - Current", "Yes - Past"], key="hormone")
+            smoking = st.selectbox("Smoking Status", ["Never", "Former", "Current"], key="smoking")
+            kidney_function = st.selectbox("Kidney Function", ["Normal", "Mild Impairment", "Moderate Impairment", "Severe Impairment"], key="kidney_func")
+            symptoms = st.multiselect("Symptoms", ["None", "Flank Pain", "Hematuria", "Fever", "Urinary Changes", "Weight Loss"], key="symptoms")
         
         patient_data = {
             'patient_id': patient_id,
             'age': age,
             'gender': gender,
             'family_history': family_history,
-            'breast_density': breast_density,
-            'previous_biopsy': previous_biopsy,
-            'menopausal_status': menopausal_status,
-            'brca_status': brca_status,
-            'hormone_therapy': hormone_therapy
+            'hypertension': hypertension,
+            'diabetes': diabetes,
+            'smoking': smoking,
+            'kidney_function': kidney_function,
+            'symptoms': symptoms
         }
 
     # Enhanced Batch Processing
@@ -822,14 +849,14 @@ def main():
             with col1:
                 st.write(f"**{result['filename']}**")
             with col2:
-                pred_color = {'benign': '🟢', 'malignant': '🔴', 'normal': '🔵', 'Error': '⚫'}[result['prediction']]
+                pred_color = {'cyst': '🟡', 'normal': '🟢', 'stone': '🟠', 'tumor': '🔴', 'Error': '⚫'}[result['prediction']]
                 st.write(f"{pred_color} **{result['prediction'].upper()}**")
             with col3:
                 st.write(f"**{result['confidence']:.1%}**")
             with col4:
                 st.write(f"**{result['inference_time']:.2f}s**")
             with col5:
-                urgency_color = {'High': '🔴', 'Low': '🟢', 'Routine': '🔵'}.get(result.get('urgency', 'N/A'), '⚫')
+                urgency_color = {'High': '🔴', 'Medium': '🟠', 'Low': '🟢', 'Routine': '🔵'}.get(result.get('urgency', 'N/A'), '⚫')
                 st.write(f"{urgency_color} {result.get('urgency', 'N/A')}")
         
         success_count = len([r for r in batch_results if r['prediction'] != 'Error'])
@@ -840,13 +867,13 @@ def main():
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown('<div class="sub-header">📤 Upload Ultrasound Image</div>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("Choose breast ultrasound image", type=['jpg', 'jpeg', 'png', 'bmp'], key="single_upload")
+        st.markdown('<div class="sub-header">📤 Upload Kidney Ultrasound</div>', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Choose kidney ultrasound image", type=['jpg', 'jpeg', 'png', 'bmp'], key="single_upload")
         
         if uploaded_file:
             try:
                 image = Image.open(uploaded_file)
-                st.image(image, caption="Uploaded Image", use_container_width=True)
+                st.image(image, caption="Uploaded Kidney Ultrasound", use_container_width=True)
                 
                 # Enhanced Image Quality Check
                 quality_issues, quality_score = image_quality_check(image)
@@ -890,8 +917,8 @@ def main():
                 ])
                 
                 with tab1:
-                    colors_dict = {'benign': '#2ecc71', 'malignant': '#e74c3c', 'normal': '#3498db'}
-                    emojis = {'benign': '✅', 'malignant': '⚠️', 'normal': '👍'}
+                    colors_dict = {'cyst': '#ff6b6b', 'normal': '#4caf50', 'stone': '#ff9800', 'tumor': '#9c27b0'}
+                    emojis = {'cyst': '🟡', 'normal': '🟢', 'stone': '🟠', 'tumor': '🔴'}
                     
                     st.markdown(f"""
                     <div class="prediction-box">
@@ -961,12 +988,14 @@ def main():
                     
                     # Timeline guidance
                     st.markdown("#### ⏰ Suggested Timeline")
-                    if predicted_class == 'malignant':
+                    if predicted_class == 'tumor':
                         st.info("**Immediate action required** - Consult within 48-72 hours")
-                    elif predicted_class == 'benign':
-                        st.info("**Routine follow-up** - Next appointment in 3-6 months")
+                    elif predicted_class == 'stone':
+                        st.info("**Urgent evaluation** - Consult within 1-2 weeks")
+                    elif predicted_class == 'cyst':
+                        st.info("**Routine follow-up** - Next appointment in 6-12 months")
                     else:
-                        st.info("**Regular screening** - Next routine check in 12 months")
+                        st.info("**Regular screening** - Next routine check in 12-24 months")
                 
                 with tab4:
                     st.markdown("### 📊 Enhanced Analytics Dashboard")
@@ -988,7 +1017,7 @@ def main():
                     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
                     
                     # Bar chart
-                    colors = ['#2ecc71', '#e74c3c', '#3498db']
+                    colors = ['#ff6b6b', '#4caf50', '#ff9800', '#9c27b0']
                     bars = ax1.bar(classes, probabilities, color=colors, alpha=0.8, edgecolor='black')
                     ax1.set_ylabel('Probability')
                     ax1.set_title('Class Probability Distribution')
@@ -1039,7 +1068,7 @@ def main():
                 
                 with tab6:
                     st.markdown("### 🔄 Comparative Analysis")
-                    previous_scan = st.file_uploader("Upload Previous Scan for Comparison", 
+                    previous_scan = st.file_uploader("Upload Previous Kidney Scan for Comparison", 
                                                    type=['jpg', 'jpeg', 'png'], 
                                                    key="previous_scan_comparison")
                     
@@ -1047,9 +1076,9 @@ def main():
                         prev_image = Image.open(previous_scan)
                         col1, col2 = st.columns(2)
                         with col1:
-                            st.image(prev_image, caption="Previous Scan", use_container_width=True)
+                            st.image(prev_image, caption="Previous Kidney Scan", use_container_width=True)
                         with col2:
-                            st.image(image, caption="Current Scan", use_container_width=True)
+                            st.image(image, caption="Current Kidney Scan", use_container_width=True)
                         
                         # Compare predictions
                         prev_prediction, prev_prob, prev_confidence, _ = predict_image(model, prev_image)
@@ -1084,7 +1113,7 @@ def main():
                         'inference_time': inference_time,
                         'quality_issues': quality_issues,
                         'quality_score': quality_score,
-                        'analysis_id': f"BREAST-AI-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                        'analysis_id': f"KIDNEY-AI-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
                         'timestamp': datetime.now().isoformat(),
                         'model_version': 'Enhanced ResNet50 Pro v2.0'
                     }
@@ -1094,7 +1123,7 @@ def main():
                     st.download_button(
                         label="📥 Download Enhanced PDF Report",
                         data=pdf_buffer,
-                        file_name=f"enhanced_breast_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        file_name=f"enhanced_kidney_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                         mime="application/pdf",
                         help="Comprehensive report with all analysis details"
                     )
@@ -1104,7 +1133,7 @@ def main():
                     st.download_button(
                         label="📊 Download JSON Data",
                         data=json_data,
-                        file_name=f"breast_analysis_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        file_name=f"kidney_analysis_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                         mime="application/json",
                         help="Structured data for integration with other systems"
                     )
