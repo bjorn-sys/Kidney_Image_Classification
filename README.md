@@ -1,6 +1,6 @@
 ==============================================================
 
-# Brain Tumor Classification Using Deep Learning (ResNet50)
+# Kidney Classification Using Deep Learning (ResNet50)
 
 ==============================================================
 
